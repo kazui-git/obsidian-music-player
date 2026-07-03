@@ -1,0 +1,34 @@
+# vscode
+.vscode
+
+# Intellij
+*.iml
+.idea
+
+# npm
+node_modules
+
+# Don't include the compiled main.js file in the repo.
+# They should be uploaded to GitHub releases instead.
+main.js
+
+# Exclude sourcemaps
+*.map
+
+# obsidian
+data.json
+
+# Exclude macOS Finder (System Explorer) View States
+.DS_Store
+
+# Per-developer build config (contains the local vault path).
+# Each developer creates their own; never commit it.
+dev-config.json
+
+# Local staging folder for assembling GitHub Release uploads.
+release-staging/
+
+# TEMPORARY: GitHub Actions workflows excluded from pushes until the
+# developer's GitHub token has the `workflow` scope. Remove this block
+# and `git add .github` once the token scope is added.
+.github/

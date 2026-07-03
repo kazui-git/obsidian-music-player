@@ -1,0 +1,10 @@
+{
+	"id": "music-player",
+	"name": "Music Player",
+	"version": "0.1.0",
+	"minAppVersion": "1.0.0",
+	"description": "A simple music player in Obsidian's sidebar. Play your local music library while you work on your notes.",
+	"author": "kazui-git",
+	"authorUrl": "https://github.com/kazui-git",
+	"isDesktopOnly": true
+}

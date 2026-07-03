@@ -1,0 +1,267 @@
+/*
+Music Player plugin styles.
+
+Uses Obsidian theme CSS variables only, so the player adapts to any theme:
+  --background-primary, --background-secondary, --background-modifier-border,
+  --background-modifier-hover, --text-normal, --text-muted, --text-faint,
+  --text-on-accent, --interactive-normal, --interactive-hover,
+  --interactive-accent, --interactive-accent-hover,
+  --radius-s, --radius-m, --radius-l, --font-ui-small, --font-ui-smallest.
+*/
+
+.music-player-plugin {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 12px;
+	gap: 12px;
+	font-size: var(--font-ui-small);
+}
+
+/* ── Now-playing block ── */
+
+.music-player-now-playing {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: 12px;
+	flex-shrink: 0;
+}
+
+.music-player-artwork {
+	position: relative;
+	width: 70%;
+	aspect-ratio: 1 / 1;
+	max-width: 220px;
+	border-radius: var(--radius-m);
+	overflow: hidden;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.music-player-artwork-img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.music-player-artwork-placeholder {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-faint);
+}
+
+.music-player-artwork-placeholder svg {
+	width: 40%;
+	height: 40%;
+}
+
+.music-player-meta {
+	width: 100%;
+}
+
+.music-player-title {
+	font-weight: 600;
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.music-player-artist {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smallest);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ── Controls ── */
+
+.music-player-controls {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.music-player-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--interactive-normal);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	cursor: pointer;
+	padding: 8px;
+	transition: background-color 0.1s ease;
+}
+
+.music-player-btn:hover {
+	background: var(--interactive-hover);
+}
+
+.music-player-btn svg {
+	width: 18px;
+	height: 18px;
+}
+
+.music-player-btn-skip svg {
+	width: 20px;
+	height: 20px;
+}
+
+.music-player-btn-play {
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	padding: 12px;
+}
+
+.music-player-btn-play:hover {
+	background: var(--interactive-accent-hover);
+	border-color: var(--interactive-accent-hover);
+}
+
+.music-player-btn-play svg {
+	width: 22px;
+	height: 22px;
+}
+
+/* ── Track list header ── */
+
+.music-player-list-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-shrink: 0;
+	padding-top: 4px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.music-player-list-title {
+	font-size: var(--font-ui-smallest);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-muted);
+	font-weight: 600;
+}
+
+.music-player-rescan-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: var(--radius-s);
+}
+
+.music-player-rescan-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.music-player-rescan-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* ── Track list ── */
+
+.music-player-list {
+	flex: 1;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-height: 0;
+}
+
+.music-player-list-status {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smallest);
+	padding: 8px 4px;
+}
+
+.music-player-track {
+	padding: 6px 8px;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.music-player-track:hover {
+	background: var(--background-modifier-hover);
+}
+
+.music-player-track-active {
+	background: var(--background-modifier-hover);
+}
+
+.music-player-track-active .music-player-track-title {
+	color: var(--text-accent);
+}
+
+.music-player-track-title {
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.music-player-track-artist {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smallest);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ── Empty / error states ── */
+
+.music-player-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	gap: 8px;
+	height: 100%;
+	padding: 24px;
+	color: var(--text-muted);
+}
+
+.music-player-empty-icon {
+	color: var(--text-faint);
+}
+
+.music-player-empty-icon svg {
+	width: 48px;
+	height: 48px;
+}
+
+.music-player-empty-title {
+	color: var(--text-normal);
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+}
+
+.music-player-empty-desc {
+	font-size: var(--font-ui-smallest);
+	max-width: 240px;
+	line-height: 1.4;
+}
