@@ -23,6 +23,9 @@ export class MusicPlayerView extends ItemView {
 	private nowPlayingArtistEl!: HTMLElement;
 	private playPauseBtn!: HTMLButtonElement;
 	private trackListEl!: HTMLElement;
+	private seekBarEl!: HTMLInputElement;
+	private currentTimeEl!: HTMLElement;
+	private durationEl!: HTMLElement;
 
 	// ── Playback state ──
 	private tracks: Track[] = [];
@@ -32,6 +35,10 @@ export class MusicPlayerView extends ItemView {
 	/** Object URL currently shown as artwork; revoked on track change. */
 	private currentArtworkUrl: string | null = null;
 	private isScanning = false;
+	/** True while the user is actively dragging the seek slider. */
+	private isSeeking = false;
+	/** Timer handle for the post-drag cooldown that re-enables seek writes. */
+	private seekTimeout: number | undefined;
 
 	constructor(leaf: WorkspaceLeaf, plugin: MusicPlayerPlugin) {
 		super(leaf);
@@ -122,6 +129,39 @@ export class MusicPlayerView extends ItemView {
 		setIcon(nextBtn, 'skip-forward');
 		nextBtn.addEventListener('click', () => this.next());
 
+		// Seek bar + time display — sibling of the controls row, NOT inside it,
+		// so it gets its own line below the transport buttons.
+		const seekBar = containerEl.createDiv({ cls: 'music-player-seek' });
+		this.currentTimeEl = seekBar.createDiv({ cls: 'music-player-time music-player-time-current', text: '0:00' });
+		this.seekBarEl = seekBar.createEl('input', {
+			cls: 'music-player-seek-bar',
+			attr: {
+				type: 'range',
+				min: '0',
+				max: '100',
+				value: '0',
+				step: '0.1',
+				'aria-label': 'Seek',
+			},
+		});
+		this.durationEl = seekBar.createDiv({ cls: 'music-player-time music-player-time-duration', text: '0:00' });
+
+		// While the user drags the slider we suspend timeupdate-driven writes so
+		// the thumb doesn't jump out from under their cursor.
+		this.seekBarEl.addEventListener('input', () => {
+			this.isSeeking = true;
+			const value = Number(this.seekBarEl.value);
+			if (this.audio.duration && Number.isFinite(this.audio.duration)) {
+				this.audio.currentTime = (value / 100) * this.audio.duration;
+				this.currentTimeEl.setText(formatTime(this.audio.currentTime));
+			}
+			// Re-arm the guard: if no further input fires within 200ms, resume.
+			window.clearTimeout(this.seekTimeout);
+			this.seekTimeout = window.setTimeout(() => {
+				this.isSeeking = false;
+			}, 200);
+		});
+
 		// Track list
 		const listHeader = containerEl.createDiv({ cls: 'music-player-list-header' });
 		listHeader.createSpan({ cls: 'music-player-list-title', text: 'Songs' });
@@ -141,6 +181,12 @@ export class MusicPlayerView extends ItemView {
 		this.audio.addEventListener('play', () => this.updatePlayPauseIcon());
 		this.audio.addEventListener('pause', () => this.updatePlayPauseIcon());
 		this.audio.addEventListener('ended', () => this.next());
+
+		// Seek bar wiring. Fires ~4×/sec during playback — cheap enough.
+		this.audio.addEventListener('timeupdate', () => this.updateSeek());
+		// Duration becomes known once the file's metadata has loaded.
+		this.audio.addEventListener('loadedmetadata', () => this.updateSeek());
+		this.audio.addEventListener('durationchange', () => this.updateSeek());
 	}
 
 	// ── Library ──
@@ -225,6 +271,12 @@ export class MusicPlayerView extends ItemView {
 		}
 		this.currentAudioUrl = url;
 		this.audio.src = url;
+		// Reset the seek display to 0:00 / 0:00 until the new track's metadata
+		// loads (loadedmetadata will fire shortly and fill in the real duration).
+		this.isSeeking = false;
+		this.seekBarEl.value = '0';
+		this.currentTimeEl.setText('0:00');
+		this.durationEl.setText('0:00');
 		await this.audio.play().catch(() => {
 			// play() rejects if interrupted (e.g. rapid track skipping) — harmless.
 		});
@@ -295,6 +347,20 @@ export class MusicPlayerView extends ItemView {
 		setIcon(this.playPauseBtn, this.audio.paused ? 'play' : 'pause');
 	}
 
+	/**
+	 * Sync the seek bar + time labels with the audio element's current state.
+	 * Skipped while the user is actively dragging the slider (see isSeeking)
+	 * so timeupdate doesn't yank the thumb back during a scrub.
+	 */
+	private updateSeek(): void {
+		if (this.isSeeking) return;
+		const { currentTime, duration } = this.audio;
+		const dur = Number.isFinite(duration) ? duration : 0;
+		this.seekBarEl.value = dur > 0 ? String((currentTime / dur) * 100) : '0';
+		this.currentTimeEl.setText(formatTime(currentTime));
+		this.durationEl.setText(formatTime(dur));
+	}
+
 	private highlightCurrent(): void {
 		const rows = this.trackListEl.querySelectorAll('.music-player-track');
 		rows.forEach((row) => {
@@ -313,4 +379,21 @@ export class MusicPlayerView extends ItemView {
 			this.currentArtworkUrl = null;
 		}
 	}
+}
+
+/**
+ * Format seconds as M:SS, or H:MM:SS for tracks over an hour. Returns '0:00'
+ * for invalid/missing values (NaN, Infinity, negatives) so the time labels
+ * never show garbage while a track is loading.
+ */
+function formatTime(seconds: number): string {
+	if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+	const total = Math.floor(seconds);
+	const hrs = Math.floor(total / 3600);
+	const mins = Math.floor((total % 3600) / 60);
+	const secs = total % 60;
+	if (hrs > 0) {
+		return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+	}
+	return `${mins}:${String(secs).padStart(2, '0')}`;
 }
