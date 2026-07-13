@@ -22,7 +22,6 @@ export interface Track {
 
 /**
  * Settings persisted to Obsidian's plugin data store (`data.json`).
- * For v1 we keep exactly one user-facing setting: the music folder path.
  */
 export interface MusicPlayerSettings {
 	/**
@@ -30,8 +29,15 @@ export interface MusicPlayerSettings {
 	 * vault by design (we scan it with Node's `fs`, not the vault adapter).
 	 */
 	musicFolderPath: string;
+	/**
+	 * Playback volume, 0–1. Restored on plugin load so the level survives
+	 * restarts. A separate `lastVolume` is kept in-memory in the view to
+	 * support mute/unmute (see MusicPlayerView).
+	 */
+	volume: number;
 }
 
 export const DEFAULT_SETTINGS: MusicPlayerSettings = {
 	musicFolderPath: '',
+	volume: 1,
 };

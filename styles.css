@@ -212,6 +212,120 @@ Uses Obsidian theme CSS variables only, so the player adapts to any theme:
 	background: var(--background-modifier-border);
 }
 
+/* ── Volume row ── */
+
+.music-player-volume {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	flex-shrink: 0;
+}
+
+.music-player-volume-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: var(--radius-s);
+	flex-shrink: 0;
+}
+
+.music-player-volume-btn:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.music-player-volume-btn svg {
+	width: 18px;
+	height: 18px;
+}
+
+/* The volume slider reuses the seek bar's styling logic: strip native
+   appearance, custom track + thumb, identical sizing for visual harmony. */
+.music-player-volume-bar {
+	flex: 1;
+	-webkit-appearance: none;
+	appearance: none;
+	height: 4px;
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-border);
+	cursor: pointer;
+	outline: none;
+	margin: 0;
+}
+
+.music-player-volume-bar::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--interactive-accent);
+	border: none;
+	cursor: pointer;
+	transition: transform 0.1s ease;
+}
+
+.music-player-volume-bar::-webkit-slider-thumb:hover {
+	transform: scale(1.15);
+}
+
+.music-player-volume-bar::-moz-range-thumb {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--interactive-accent);
+	border: none;
+	cursor: pointer;
+}
+
+.music-player-volume-bar::-moz-range-track {
+	height: 4px;
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-border);
+}
+
+/* ── Search box ── */
+
+.music-player-search {
+	flex-shrink: 0;
+	width: 100%;
+}
+
+.music-player-search-input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 6px 10px;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	outline: none;
+	transition: border-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+.music-player-search-input::placeholder {
+	color: var(--text-faint);
+}
+
+.music-player-search-input:focus {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px var(--background-modifier-border);
+}
+
+/* Hide the native search clear (×) button on WebKit — we handle clearing via
+   backspace; keeping the native one leads to two clear controls fighting. */
+.music-player-search-input::-webkit-search-cancel-button {
+	-webkit-appearance: none;
+	appearance: none;
+}
+
 /* ── Track list header ── */
 
 .music-player-list-header {

@@ -26,6 +26,9 @@ export class MusicPlayerView extends ItemView {
 	private seekBarEl!: HTMLInputElement;
 	private currentTimeEl!: HTMLElement;
 	private durationEl!: HTMLElement;
+	private volumeBtn!: HTMLButtonElement;
+	private volumeBarEl!: HTMLInputElement;
+	private searchInputEl!: HTMLInputElement;
 
 	// ── Playback state ──
 	private tracks: Track[] = [];
@@ -39,6 +42,12 @@ export class MusicPlayerView extends ItemView {
 	private isSeeking = false;
 	/** Timer handle for the post-drag cooldown that re-enables seek writes. */
 	private seekTimeout: number | undefined;
+	/** Volume before mute, so unmute restores it. -1 means not muted. */
+	private preMuteVolume = -1;
+	/** Debounce handle for persisting volume to settings on drag. */
+	private volumeSaveTimeout: number | undefined;
+	/** Current search query; empty string means show all tracks. */
+	private searchQuery = '';
 
 	constructor(leaf: WorkspaceLeaf, plugin: MusicPlayerPlugin) {
 		super(leaf);
@@ -68,6 +77,9 @@ export class MusicPlayerView extends ItemView {
 
 		this.buildLayout();
 		this.attachAudioEvents();
+
+		// Apply the saved volume to the audio element + sync the icon.
+		this.applyVolume(this.plugin.settings.volume);
 
 		// Kick off the initial scan if a folder is configured.
 		await this.rescanLibrary();
@@ -162,6 +174,53 @@ export class MusicPlayerView extends ItemView {
 			}, 200);
 		});
 
+		// Volume row — clickable speaker icon (mute/unmute) + slider.
+		const volumeRow = containerEl.createDiv({ cls: 'music-player-volume' });
+		this.volumeBtn = volumeRow.createEl('button', {
+			cls: 'music-player-volume-btn',
+			attr: { 'aria-label': 'Mute / unmute', title: 'Mute / unmute' },
+		});
+		this.volumeBarEl = volumeRow.createEl('input', {
+			cls: 'music-player-volume-bar',
+			attr: {
+				type: 'range',
+				min: '0',
+				max: '1',
+				step: '0.01',
+				value: String(this.plugin.settings.volume),
+				'aria-label': 'Volume',
+			},
+		});
+
+		// Click the icon → toggle mute (remembers the pre-mute level).
+		this.volumeBtn.addEventListener('click', () => this.toggleMute());
+
+		// Drag the slider → set volume in real time; persist after a short
+		// debounce so we don't write to disk on every pixel of a drag.
+		this.volumeBarEl.addEventListener('input', () => {
+			const v = Number(this.volumeBarEl.value);
+			this.applyVolume(v);
+			this.scheduleVolumeSave();
+		});
+
+		// Search box — sits between the volume row and the track list so it's
+		// always reachable without crowding the now-playing area.
+		const searchWrap = containerEl.createDiv({ cls: 'music-player-search' });
+		this.searchInputEl = searchWrap.createEl('input', {
+			cls: 'music-player-search-input',
+			attr: {
+				type: 'search',
+				placeholder: 'Search songs…',
+				'aria-label': 'Search songs',
+				spellcheck: 'false',
+			},
+		});
+		// Filter the list as the user types; clear restores the full list.
+		this.searchInputEl.addEventListener('input', () => {
+			this.searchQuery = this.searchInputEl.value;
+			this.renderTrackList();
+		});
+
 		// Track list
 		const listHeader = containerEl.createDiv({ cls: 'music-player-list-header' });
 		listHeader.createSpan({ cls: 'music-player-list-title', text: 'Songs' });
@@ -226,9 +285,18 @@ export class MusicPlayerView extends ItemView {
 		// Rebuild the full layout to recover from an empty-state swap.
 		this.buildLayout();
 
+		// Restore any active search query into the input (buildLayout recreated it).
+		this.searchInputEl.value = this.searchQuery;
+
+		const query = this.searchQuery.trim().toLowerCase();
+		let matchCount = 0;
+
 		for (let i = 0; i < this.tracks.length; i++) {
 			const track = this.tracks[i];
 			if (!track) continue;
+			if (query && !this.trackMatches(track, query)) continue;
+
+			matchCount++;
 			const row = this.trackListEl.createDiv({
 				cls: 'music-player-track',
 				attr: { 'data-index': String(i) },
@@ -240,7 +308,26 @@ export class MusicPlayerView extends ItemView {
 			row.addEventListener('click', () => this.playTrack(i));
 		}
 
+		// If the search returned nothing, show a hint instead of a blank list.
+		if (query && matchCount === 0) {
+			this.trackListEl.createDiv({
+				cls: 'music-player-list-status',
+				text: `No songs match “${this.searchQuery.trim()}”.`,
+			});
+		}
+
 		this.highlightCurrent();
+	}
+
+	/**
+	 * Case-insensitive substring match across title, artist, and album.
+	 * Empty fields are skipped so missing tags don't cause false negatives.
+	 */
+	private trackMatches(track: Track, query: string): boolean {
+		if (track.title.toLowerCase().includes(query)) return true;
+		if (track.artist && track.artist.toLowerCase().includes(query)) return true;
+		if (track.album && track.album.toLowerCase().includes(query)) return true;
+		return false;
 	}
 
 	private showEmptyState(title: string, desc: string): void {
@@ -359,6 +446,56 @@ export class MusicPlayerView extends ItemView {
 		this.seekBarEl.value = dur > 0 ? String((currentTime / dur) * 100) : '0';
 		this.currentTimeEl.setText(formatTime(currentTime));
 		this.durationEl.setText(formatTime(dur));
+	}
+
+	/**
+	 * Apply a volume level (0–1) to the audio element, update the slider to
+	 * match, refresh the icon, and store it as the current setting. Used by
+	 * both the slider and mute/unmute.
+	 */
+	private applyVolume(v: number): void {
+		const clamped = Math.max(0, Math.min(1, v));
+		this.audio.volume = clamped;
+		this.volumeBarEl.value = String(clamped);
+		this.plugin.settings.volume = clamped;
+		this.updateVolumeIcon(clamped);
+	}
+
+	/** Toggle between muted and the last non-zero volume. */
+	private toggleMute(): void {
+		if (this.audio.volume > 0) {
+			// Mute: remember the current level for restore.
+			this.preMuteVolume = this.audio.volume;
+			this.applyVolume(0);
+		} else {
+			// Unmute: restore the remembered level, or full if none.
+			const restore = this.preMuteVolume > 0 ? this.preMuteVolume : 1;
+			this.preMuteVolume = -1;
+			this.applyVolume(restore);
+		}
+		this.scheduleVolumeSave();
+	}
+
+	/**
+	 * Pick the right Lucide volume icon for the level: muted / low / high.
+	 */
+	private updateVolumeIcon(v: number): void {
+		let icon: string;
+		if (v <= 0) icon = 'volume-x';
+		else if (v < 0.5) icon = 'volume-1';
+		else icon = 'volume-2';
+		setIcon(this.volumeBtn, icon);
+	}
+
+	/**
+	 * Persist the current volume to settings, debounced so a drag doesn't
+	 * trigger a disk write per pixel.
+	 */
+	private scheduleVolumeSave(): void {
+		window.clearTimeout(this.volumeSaveTimeout);
+		this.volumeSaveTimeout = window.setTimeout(() => {
+			void this.plugin.savePluginData();
+		}, 400);
 	}
 
 	private highlightCurrent(): void {
