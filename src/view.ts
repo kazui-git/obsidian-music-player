@@ -216,9 +216,11 @@ export class MusicPlayerView extends ItemView {
 			},
 		});
 		// Filter the list as the user types; clear restores the full list.
+		// Uses populateTrackList() (not renderTrackList()) so we only refresh
+		// the rows — rebuilding the whole layout would destroy this input mid-typing.
 		this.searchInputEl.addEventListener('input', () => {
 			this.searchQuery = this.searchInputEl.value;
-			this.renderTrackList();
+			this.populateTrackList();
 		});
 
 		// Track list
@@ -283,10 +285,20 @@ export class MusicPlayerView extends ItemView {
 
 	private renderTrackList(): void {
 		// Rebuild the full layout to recover from an empty-state swap.
+		// (showEmptyState wipes containerEl, so we need the full UI back.)
 		this.buildLayout();
 
-		// Restore any active search query into the input (buildLayout recreated it).
-		this.searchInputEl.value = this.searchQuery;
+		this.populateTrackList();
+	}
+
+	/**
+	 * Re-fill the track list with rows matching the current search query.
+	 * Only touches the list container — leaves the rest of the UI (search input,
+	 * controls, artwork) intact, so calling this during typing doesn't yank
+	 * focus out from under the user.
+	 */
+	private populateTrackList(): void {
+		this.trackListEl.empty();
 
 		const query = this.searchQuery.trim().toLowerCase();
 		let matchCount = 0;
